@@ -1,0 +1,160 @@
+---
+title: "Twitter Sentiment Analysis of U.S Airlines"
+author: "Warren"
+date: "4/12/2022"
+output:
+  word_document: default
+  pdf_document:
+    latex_engine: xelatex
+mainfont: Times New Roman
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE, message = FALSE)
+setwd("/Users/warren/Downloads")
+library(dplyr)   
+library(forcats) 
+library(ggplot2) 
+library(caTools) 
+library(tm)  
+library(SnowballC) 
+library(wordcloud)
+library("RColorBrewer") 
+library(tidytext)
+data<-read.csv('Tweets.csv')
+```
+
+# Introduction
+
+Nowadays, people all over the world tend to express their emotions and opinions on brands, products, services online and the shares of internet users who use online social networks increased rapidly in the past few years. As a result, companies pay more and more attentions on the emotions and opinions from social media websites in order to understand of their customers. As a leading social network website, Twitter is one of the biggest platform for people to express their opinions and is one of the most important platform for companies to collect customer feedback. Sentiment analysis is contextual mining of text which identifies and extracts subjective information in source material, and helping a business to understand the social sentiment of their brand, product or service while monitoring online conversations$^1$. In the project, the data is consisted of customer feedback on major U.S. airlines through Twitter in February, 2015. The goal of this project is to help airline companies analyze the data with sentiment analysis and improve the airline services in the future.
+
+In this project, we will know which US airline companies are more positively known by their customers. Also, the analysis can help the airline companies value their service and plan more effective marketing strategies accordingly further.
+
+# Data and Visualization
+
+The data set *Tweets*, which originally collected from Crowdflower's Data for Everyone library, contains a sample of 14,640 tweet cases in February 2015, considering whether the sentiment of feedback tweets was positive, negative or neutral for six airline companies. There are 15 variables, including: tweet_id, airline_sentiment, airline_sentiment_confidence, negativereason, airline, text, tweet_location and so on. Analysis is conducted on the sentiments of the people for the six airlines using part of the variables.
+
+Before doing sentiment analysis, we should extract tweets' words to find the most frequent words in each sentiment. First, we processed the data set and converted the variable *text* from factor to character in R. Next, we plot the distribution of all the tweets' airline sentiments and extract the summary statistics in order to understand customers' opinions on the major airline industry in America.
+
+```{r echo=FALSE}
+data$text <- as.character(data$text)
+processed <- data %>%
+  unnest_tokens(word, text)
+ggplot(data, aes(x = airline_sentiment, fill = airline_sentiment)) +
+  geom_bar() + ggtitle("Figure 1: Sentiment of Tweets on U.S Airlines in Feb 2015") +
+  xlab("Sentiment") + ylab("Count")#sentiment distribution
+summary(data$airline_sentiment)
+```
+
+According to figure 1 and the summary table above, in total, there are 9178 negative tweets, 2363 positive tweets and 3099 neutral tweets. The shares of negative tweets are higher than others, thus airline companies are more negatively known by customers.
+
+Moreover, we plot the sentiment of the tweets for each airline companies to see the distribution for all six airlines.
+
+```{r echo=FALSE}
+
+ggplot(data, aes(x = airline,fill = airline_sentiment ))+
+    geom_bar(stat = "count")+ ggtitle("Figure 2: Sentiment of Tweets by Airlines in Feb 2015") +
+  xlab("Airlines") + ylab("Count")#sentiment distribution by airlines
+```
+
+In figure 2, overall, all six airlines are more negative feedback, But in specific, United, US Airways and American get not only the most number of feedback, but also the top three number of negative complaints.
+
+After visualizing the distributions of airline tweets' sentiment in Feb, 2015, we should do the analysis on all the text or words for all the sentiments in the next section.
+
+# Sentiment Analysis
+
+```{r echo=FALSE, message=FALSE}
+
+words <- Corpus(VectorSource(data$text))
+words <- tm_map(words, content_transformer(tolower))
+words <- tm_map(words, removeNumbers)
+words <- tm_map(words, removeWords, stopwords("english"))
+words <- tm_map(words, removePunctuation)
+words <- tm_map(words, stripWhitespace)
+#text to matrix
+w <- TermDocumentMatrix(words)
+ww <- as.matrix(w)
+v <- sort(rowSums(ww),decreasing=TRUE)
+twi <- data.frame(word = names(v),freq=v)
+
+```
+
+```{r echo=FALSE}
+#word Cloud
+set.seed(1111)
+wordcloud(words = twi$word, freq = twi$freq, min.freq = 1,
+          max.words=50, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(10, "Paired"))
+
+head(twi, 10)
+```
+
+According to the wordcloud plot and the table above, the most frequent words in tweets include: 'united', 'flight', 'usairways', 'americanair', 'southwestair', 'jetblue', 'get','can', 'thanks', and 'cancelled'.
+
+Moreover, we should do analysis for both the positive and negative sentiment.
+
+## Positive Sentiment
+
+```{r echo=FALSE, message=FALSE}
+positive <- processed %>% filter(airline_sentiment=="positive")
+negative <- processed %>% filter(airline_sentiment=="negative")
+# exclude common words
+list <- c("i", "you","to", "the","a","we", "an", "can", "for", "on", "and", "is", "are", "am",  "my", "in", "it", "me", "of", "was", "your","will", "t.co","http","so","","with","have","at","that","this","just","get")
+positive <- positive %>%
+  filter(!(word %in% list))
+wordcloud(positive[,15],
+          max.words = 100,
+          random.order=FALSE, 
+          rot.per=0.30, 
+          use.r.layout=FALSE, 
+          colors=brewer.pal(10, "Paired"))
+
+positive1 <- positive %>%
+  count(word, sort = TRUE) %>%
+  rename(freq = n)
+
+head(positive1, 10)
+```
+
+According to the wordcloud plot and table above, the most frequent words in positive tweets include: 'thanks', 'jetblue', 'southwestair','united', 'thank', 'flight','americanair', 'usairways', and 'great', 'service'. None of these words are the reason why they are satisfy with the flight.
+
+## Negative Sentiment
+
+```{r echo=FALSE, message=FALSE}
+negative <- negative %>%
+  filter(!(word %in% list))
+wordcloud(negative[,15],
+          max.words = 100,
+          random.order=FALSE, 
+          rot.per=0.30, 
+          use.r.layout=FALSE, 
+          colors=brewer.pal(10, "Paired"))
+
+negative1 <- negative %>%
+  count(word, sort = TRUE) %>%
+  rename(freq = n)
+
+head(negative1, 10)
+```
+
+According to the wordcloud plot and the table above, the most frequent words in negative tweets include: 'flight', 'united', 'usairways','americanair', 'not','no', 'southwestair', and 'but', 'cancelled'. Only cancelled is related to negative sentiment, so may be in the future we should filter more words in order to find out the reason why it is negative sentiment.
+
+In addition, to find the reasons of negative feedback from customers further, we plot the distribution of the most frequent negative reasons in the data set.
+
+```{r echo=FALSE}
+ggplot(data, aes(x = fct_infreq(factor(negativereason))))+
+    geom_bar(fill='red')+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+ ggtitle("Figure 3: Most Frequent Negative Reasons")  +  xlab("Negative Reasons")+ylab("Count")#sentiment distribution by airlines
+```
+
+According to figure 3, negative tweets are mostly caused by *Customer Service Issues*. Another major reason of complaints is *Late Flight*. The top negative reasons for each airline may be different from which for all major airlines. In addiction, we can't find out there is any correlation between the comment and the negative reason right now. Maybe it is because the data set is not large enough or there are no specific words for customer to express the reason why they don't like the airline service.
+
+# Conclusion
+
+In this project, we used twitter data to analyze the people's sentiments on the the major US Airlines. The opinions of people on the airlines were scraped from February of 2015. The method used in the project can also be applied for other sentiment analysis of products, services, companies and trending topics for the purpose of the research. In this project, the results show the distributions of customers' opinions expressed on twitter and reasons for negative, positive sentiments. The sentiments including positive, negative and neutral reflect the airline companies' customer satisfaction on their airlines. The reasons of expressing positive and negative tweets help the airline companies understand how to improve their services, such as avoiding late flight.
+
+For future work, we can randomly select a larger data set of tweets in February 2015 for a more accurate understanding of customer satisfaction and better filter the positive/ negative sentiment to get a better result. Analyzing twitter sentiments by geographical location is another way to improve our understanding of the customer feedback expressed on Twitter.
+
+## Reference
+
+1.  Gupta, S. (2018). Sentiment Analysis: Concept, Analysis and Applications. <https://towardsdatascience.com/sentiment-analysis-concept-analysis-and-applications-6c94d6f58c17>
